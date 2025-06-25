@@ -5,10 +5,18 @@ Fully-compatible with AuroraOS ConnMan VPN WireGuard plugin. Needs to be signed 
 ## Package features
 |Feature|Implemented|
 |-------|-----------|
-|Setting Plugin|:heavy_multiplication_x:|
+|ConnMan VPN Plugin|:white_check_mark:|
+|Settings Plugin|:heavy_multiplication_x:|
 |Desktop Application|:heavy_multiplication_x:|
+
+## ConnMan VPN plugin features
+|Feature|Implemented|
+|-------|-----------|
+|Multiple Peers|:white_check_mark:|
+|Split Routing|:white_check_mark:|
 |Configure with config file|:heavy_multiplication_x:|
-|Configure with properties|:white_check_mark:|
+|Configure with options|:white_check_mark:|
+|On-air configuration|:heavy_multiplication_x:|
 
 ## Dependencies
 1. connman-devel
@@ -53,6 +61,8 @@ To configure it via D-Bus from terminal you can use script `script/create.sh` on
 ```
 bash create.sh
 ```
+
+Available options you can find in [aurora/wireguard.h](https://github.com/fedyarov/aurora-wireguard-go/blob/main/aurora/wireguard.h)
 
 To modidy connection via D-Bus from terminal you can use script `script/modify.sh` on device:
 ```
