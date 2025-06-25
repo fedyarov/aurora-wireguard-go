@@ -1,0 +1,154 @@
+From 729b5d94295c22215b69675a08caac4c664844bc Mon Sep 17 00:00:00 2001
+From: Maksim Fedyarov <m.fedyarov@omp.ru>
+Date: Wed, 25 Jun 2025 11:12:18 +0300
+Subject: [PATCH] Made changes to be used in ConnMan VPN Wireguard plugin
+
+Change socket directory
+
+Remove linux wireguard headers, as Aurora doesn't have one
+
+Add conditional inclusion to be used in plugin
+---
+ src/containers.h    |  5 ----
+ src/ipc-uapi-unix.h | 56 +++++++++++++++++++++++++++++++++++++++++----
+ src/ipc.c           |  2 +-
+ 3 files changed, 53 insertions(+), 10 deletions(-)
+
+diff --git a/src/containers.h b/src/containers.h
+index 8fd813a..525a35a 100644
+--- a/src/containers.h
++++ b/src/containers.h
+@@ -12,11 +12,6 @@
+ #include <sys/socket.h>
+ #include <net/if.h>
+ #include <netinet/in.h>
+-#if defined(__linux__)
+-#include <linux/wireguard.h>
+-#elif defined(__OpenBSD__)
+-#include <net/if_wg.h>
+-#endif
+ 
+ #ifndef WG_KEY_LEN
+ #define WG_KEY_LEN 32
+diff --git a/src/ipc-uapi-unix.h b/src/ipc-uapi-unix.h
+index aaf60ca..8d80284 100644
+--- a/src/ipc-uapi-unix.h
++++ b/src/ipc-uapi-unix.h
+@@ -14,11 +14,21 @@
+ #include <sys/stat.h>
+ #include <sys/un.h>
+ 
+-#define SOCK_PATH RUNSTATEDIR "/wireguard/"
+ #define SOCK_SUFFIX ".sock"
+ 
++char *socket_dir;
++
++static void socket_dir_check()
++{
++	if (!socket_dir) {
++		exit(EXIT_FAILURE);
++	}
++}
++
+ static FILE *userspace_interface_file(const char *iface)
+ {
++	socket_dir_check();
++
+ 	struct stat sbuf;
+ 	struct sockaddr_un addr = { .sun_family = AF_UNIX };
+ 	int fd = -1, ret;
+@@ -27,7 +37,7 @@ static FILE *userspace_interface_file(const char *iface)
+ 	errno = EINVAL;
+ 	if (strchr(iface, '/'))
+ 		goto out;
+-	ret = snprintf(addr.sun_path, sizeof(addr.sun_path), SOCK_PATH "%s" SOCK_SUFFIX, iface);
++	ret = snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s" SOCK_SUFFIX, socket_dir, iface);
+ 	if (ret < 0)
+ 		goto out;
+ 	ret = stat(addr.sun_path, &sbuf);
+@@ -63,13 +73,15 @@ out:
+ 
+ static bool userspace_has_wireguard_interface(const char *iface)
+ {
++	socket_dir_check();
++
+ 	struct stat sbuf;
+ 	struct sockaddr_un addr = { .sun_family = AF_UNIX };
+ 	int fd, ret;
+ 
+ 	if (strchr(iface, '/'))
+ 		return false;
+-	if (snprintf(addr.sun_path, sizeof(addr.sun_path), SOCK_PATH "%s" SOCK_SUFFIX, iface) < 0)
++	if (snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s" SOCK_SUFFIX, socket_dir, iface) < 0)
+ 		return false;
+ 	if (stat(addr.sun_path, &sbuf) < 0)
+ 		return false;
+@@ -88,15 +100,51 @@ static bool userspace_has_wireguard_interface(const char *iface)
+ 	return true;
+ }
+ 
++#ifdef CONNMAN_PLUGIN
++struct string_list {
++	char *buffer;
++	size_t len;
++	size_t cap;
++};
++
++static int string_list_add(struct string_list *list, const char *str)
++{
++	size_t len = strlen(str) + 1;
++
++	if (len == 1)
++		return 0;
++
++	if (len >= list->cap - list->len) {
++		char *new_buffer;
++		size_t new_cap = list->cap * 2;
++
++		if (new_cap < list->len + len + 1)
++			new_cap = list->len + len + 1;
++		new_buffer = realloc(list->buffer, new_cap);
++		if (!new_buffer)
++			return -errno;
++		list->buffer = new_buffer;
++		list->cap = new_cap;
++	}
++	memcpy(list->buffer + list->len, str, len);
++	list->len += len;
++	list->buffer[list->len] = '\0';
++	return 0;
++}
++
++#endif
++
+ static int userspace_get_wireguard_interfaces(struct string_list *list)
+ {
++	socket_dir_check();
++	
+ 	DIR *dir;
+ 	struct dirent *ent;
+ 	size_t len;
+ 	char *end;
+ 	int ret = 0;
+ 
+-	dir = opendir(SOCK_PATH);
++	dir = opendir(socket_dir);
+ 	if (!dir)
+ 		return errno == ENOENT ? 0 : -errno;
+ 	while ((ent = readdir(dir))) {
+diff --git a/src/ipc.c b/src/ipc.c
+index 1155bd5..4fd4d39 100644
+--- a/src/ipc.c
++++ b/src/ipc.c
+@@ -42,7 +42,7 @@ static int string_list_add(struct string_list *list, const char *str)
+ 
+ #include "ipc-uapi.h"
+ #if defined(__linux__)
+-#include "ipc-linux.h"
++//#include "ipc-linux.h"
+ #elif defined(__OpenBSD__)
+ #include "ipc-openbsd.h"
+ #elif defined(__FreeBSD__)
+-- 
+2.34.1
+
