@@ -1,6 +1,6 @@
-# Wireguard-go for AuroraOS
+# Wireguard for AuroraOS
 
-Fully-compatible with AuroraOS ConnMan VPN WireGuard plugin. Needs to be signed with Extended profile.
+Fully-compatible with AuroraOS ConnMan VPN WireGuard plugin. Use wireguard-go as user-space protocol implementation. Needs to be signed with Extended profile.
 
 ## Package features
 |Feature|Implemented|
